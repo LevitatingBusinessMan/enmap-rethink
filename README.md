@@ -2,6 +2,42 @@
 
 Enmap-Rethink is a provider for the [Enmap](https://www.npmjs.com/package/enmap) module. It enables the use of a persistent data structure using RethinkDB as a backend (well, `rethinkdbdash` really). 
 
+# This Enmap-Rethink fork
+Enmap-Rethink saves objects to Rethink in Stringified JSON format even though RethinkDB is a JSON based database. This fork changes the behaviour of Enmap-Rethink by having it save objects to RethinkDB natively for better use with the official drivers and the online DataExplorer. Non-Objects (integers, strings, arrays etc.) can still be saved via Enmap though, but will end up as a property called data. 
+Do note that this fork will add the key you have Enmap identify your variable with as a property called id when saving objects.
+
+So
+```js
+  myColl.set('obj', { foo: 'bar' });
+
+  myColl.set('str', 'foo');
+```
+will be saved in the DB as: 
+```js
+{
+"foo":  "bar" ,
+"id":  "obj"
+}
+
+{
+"data":  "foo" ,
+"enmapNonObj": true ,
+"id":  "str"
+}
+```
+Whereas previously they'd be saved as:
+```js
+{
+"data":  "{"foo": "bar"}" ,
+"id": "obj"
+}
+
+{
+"data":  "foo" ,
+"id":  "str"
+}
+```
+
 ## Installation
 
 To install enmap-rethink simply run `npm i enmap-rethink`. You need to have a RethinkDB server already installed, this module does not install it for you. 

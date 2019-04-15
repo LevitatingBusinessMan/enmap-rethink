@@ -69,8 +69,17 @@ class EnmapProvider {
    */
   async fetch(key) {
     const row = await this.db.get(key).run();
-    if (row) this.enmap.set(key, row.value);
-    return Promise.resolve(row.data);
+
+    let val;
+    if (row.enmapNonObj) {
+      val = row.data;
+    } else {
+      val = row;
+    }
+
+    Map.prototype.set.call(this.enmap, row.id, val);
+
+    return Promise.resolve(val);
   }
 
   /** 
@@ -81,11 +90,15 @@ class EnmapProvider {
     const data = await this.db.run();
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      let parsedValue = row.data;
-      if (row.data[0] === '[' || row.data[0] === '{') {
-        parsedValue = JSON.parse(row.data);
+
+      let val;
+      if (row.enmapNonObj) {
+        val = row.data;
+      } else {
+        val = row;
       }
-      Map.prototype.set.call(this.enmap, parsedValue);
+
+      Map.prototype.set.call(this.enmap, row.id, val);
     }
     return this;
   }
@@ -101,8 +114,20 @@ class EnmapProvider {
     if (!key || !['String', 'Number'].includes(key.constructor.name)) {
       throw new Error('Rethink requires keys to be strings or numbers.');
     }
-    const insert = typeof val === 'object' ? JSON.stringify(val) : val;
-    return this.db.insert({ id: key, data: insert }, { conflict: 'replace', returnChanges: false }).catch(console.error);
+    if (typeof val === 'object') {
+      // Rethink requires each object to carry its own id
+      if (val.id && val.id !== key) {
+        throw new Error('Key and id property don\'t match');
+      }
+
+      if (!val.id) {
+        val.id = key;
+      }
+
+      return this.db.insert(val, { conflict: 'replace', returnChanges: false }).catch(console.error);
+    } else {
+      return this.db.insert({ id: key, data: val, enmapNonObj: true }, { conflict: 'replace', returnChanges: false }).catch(console.error);
+    }
   }
 
   /**
